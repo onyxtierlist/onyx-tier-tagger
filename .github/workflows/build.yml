@@ -1,3 +1,4 @@
+```yaml
 name: Build Onyx Tier Tagger
 
 on:
