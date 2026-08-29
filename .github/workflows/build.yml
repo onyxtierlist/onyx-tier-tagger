@@ -23,6 +23,8 @@ jobs:
           java-version: "21"
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
       - name: Build mod
         run: ./gradlew clean build --no-daemon
       - name: Upload JAR
