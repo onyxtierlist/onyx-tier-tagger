@@ -17,10 +17,11 @@ public class PlayerEntityRendererMixin {
     @Inject(method = "hasLabel", at = @At("RETURN"), cancellable = true)
     private void onHasLabel(PlayerLikeEntity player, double squaredDistanceToCamera,
                             CallbackInfoReturnable<Boolean> cir) {
-        if (!OnyxTierTaggerClient.showAboveHead) return;
+        if (!OnyxTierTaggerClient.showAboveHead || !OnyxTierTaggerClient.showSelfName) return;
 
         MinecraftClient client = MinecraftClient.getInstance();
-        if (client.player != null && player == client.player && OnyxTierTaggerClient.showSelfName
+        if (client.player != null
+                && player == client.player
                 && !client.options.getPerspective().isFirstPerson()) {
             cir.setReturnValue(true);
         }
@@ -43,9 +44,8 @@ public class PlayerEntityRendererMixin {
         var info = OnyxTierTaggerClient.get(player);
         if (info == null) return;
 
-        // PlayerEntityRenderer already renders the player's normal name.
-        // We append the Onyx tag so the final display is: [HT1 ◆] Steve
-        Text tag = Text.literal("[" + info.tier() + " " + info.emoji() + "] ");
-        state.playerName = tag.copy().append(state.playerName);
+        state.playerName = state.playerName.copy()
+                .append(Text.literal(OnyxTierTaggerClient.separator
+                        + info.emoji() + " " + info.tier()));
     }
 }

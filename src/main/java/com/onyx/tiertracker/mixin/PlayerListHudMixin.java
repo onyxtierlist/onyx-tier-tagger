@@ -16,6 +16,6 @@ public class PlayerListHudMixin {
         if (!OnyxTierTaggerClient.showInTab) return;
         OnyxTierTaggerClient.TierInfo info = OnyxTierTaggerClient.get(entry);
         if (info == null) return;
-        cir.setReturnValue(Text.literal("[" + info.tier() + " " + info.emoji() + "] ").append(cir.getReturnValue()));
+        cir.setReturnValue(cir.getReturnValue().copy().append(Text.literal(" " + info.emoji() + " " + info.tier())));
     }
 }
