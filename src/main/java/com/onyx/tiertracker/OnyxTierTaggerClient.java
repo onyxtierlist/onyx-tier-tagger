@@ -49,7 +49,7 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
 
     private static void refreshNearbyPlayers(MinecraftClient client) {
         for (PlayerEntity player : client.world.getPlayers()) {
-            fetch(player.getUuid(), player.getName().getString());
+            fetch(player.getUuid(), player.getGameProfile().name());
         }
     }
 
@@ -58,14 +58,15 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
     }
 
     public static TierInfo get(PlayerListEntry entry) {
-        UUID uuid = entry.getUuid();
-        String username = entry.getProfile().name();
-    
-        TierInfo info = CACHE.get(uuid);
-        if (info == null) {
-            fetch(uuid, username);
-        }
-        return info;
+    var profile = entry.getProfile();
+    UUID uuid = profile.id();
+    String username = profile.name();
+
+    TierInfo info = CACHE.get(uuid);
+    if (info == null) {
+        fetch(uuid, username);
+    }
+    return info;
     }
 
     public static void fetch(UUID uuid, String username) {
