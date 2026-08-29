@@ -31,7 +31,8 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
         return t;
     });
 
-    public static String apiUrl = "https://onyx-website.onrender.com/api/onyx/player";
+    public static final String DEFAULT_API_URL = "https://onyx-website.onrender.com/api/onyx/player";
+    public static String apiUrl = DEFAULT_API_URL;
     public static int refreshSeconds = 60;
     public static boolean showAboveHead = true;
     public static boolean showInTab = true;
@@ -43,7 +44,9 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
         loadConfig();
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.world == null) return;
-            if (client.player.age % (20 * Math.max(5, refreshSeconds)) == 0) {
+            // Fetch immediately on the first client tick so the local player's
+            // tier is available before the nametag is rendered.
+            if (client.player.age == 1 || client.player.age % (20 * Math.max(5, refreshSeconds)) == 0) {
                 refreshNearbyPlayers(client);
             }
         });
@@ -86,16 +89,32 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
         }
         if (!IN_FLIGHT.add(uuid)) return;
 
-        String url = apiUrl.replaceAll("/$", "") + "/" + encode(username);
-        HttpRequest request = HttpRequest.newBuilder(URI.create(url)).GET().timeout(java.time.Duration.ofSeconds(5)).build();
+        String baseUrl = apiUrl == null || apiUrl.isBlank() ? DEFAULT_API_URL : apiUrl;
+        String url = baseUrl.replaceAll("/$", "") + "/" + encode(username);
+        HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+                .header("Accept", "application/json")
+                .GET()
+                .timeout(java.time.Duration.ofSeconds(8))
+                .build();
         HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenAccept(response -> {
-            if (response.statusCode() != 200) return;
-            TierInfo info = TierInfo.parse(response.body());
+            String body = response.body();
+            System.out.println("[OnyxTierTagger] GET " + url + " -> " + response.statusCode());
+            if (response.statusCode() != 200) {
+                System.out.println("[OnyxTierTagger] API response: " + body);
+                return;
+            }
+            TierInfo info = TierInfo.parse(body);
             if (info != null) {
                 CACHE.put(uuid, info);
                 NAME_CACHE.put(username.toLowerCase(), info);
+                System.out.println("[OnyxTierTagger] Loaded " + username + " -> " + info.tier());
+            } else {
+                System.out.println("[OnyxTierTagger] API returned no usable tier for " + username + ": " + body);
             }
-        }).exceptionally(ex -> null).whenComplete((ignored, ex) -> IN_FLIGHT.remove(uuid));
+        }).exceptionally(ex -> {
+            System.out.println("[OnyxTierTagger] API request failed for " + username + ": " + ex);
+            return null;
+        }).whenComplete((ignored, ex) -> IN_FLIGHT.remove(uuid));
     }
 
     private static String encode(String value) {
@@ -107,11 +126,19 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
             Path path = MinecraftClient.getInstance().runDirectory.toPath().resolve("config/onyx_tagger.properties");
             if (!Files.exists(path)) {
                 Files.createDirectories(path.getParent());
-                Files.writeString(path, "api_url=https://onyx-website.onrender.com/api/onyx/player\nrefresh_seconds=60\nshow_above_head=true\nshow_in_tab=true\nshow_self_name=true\nseparator= §8• §r\n");
+                Files.writeString(path, "api_url=" + DEFAULT_API_URL + "\nrefresh_seconds=60\nshow_above_head=true\nshow_in_tab=true\nshow_self_name=true\nseparator= §8• §r\n");
                 return;
             }
             for (String line : Files.readAllLines(path)) {
-                if (line.startsWith("api_url=")) apiUrl = line.substring(8).trim();
+                if (line.startsWith("api_url=")) {
+                    String configured = line.substring(8).trim();
+                    // Migrate configs created by earlier builds.
+                    if (configured.isBlank() || configured.contains("localhost:8080") || configured.contains("/api/player")) {
+                        apiUrl = DEFAULT_API_URL;
+                    } else {
+                        apiUrl = configured;
+                    }
+                }
                 else if (line.startsWith("refresh_seconds=")) refreshSeconds = Integer.parseInt(line.substring(16).trim());
                 else if (line.startsWith("show_above_head=")) showAboveHead = Boolean.parseBoolean(line.substring(16).trim());
                 else if (line.startsWith("show_in_tab=")) showInTab = Boolean.parseBoolean(line.substring(12).trim());
