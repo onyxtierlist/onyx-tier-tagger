@@ -58,10 +58,12 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
     }
 
     public static TierInfo get(PlayerListEntry entry) {
-        UUID uuid = entry.getProfile().getId();
+        UUID uuid = entry.getUuid();
+        String username = entry.getProfile().name();
+    
         TierInfo info = CACHE.get(uuid);
         if (info == null) {
-            fetch(uuid, entry.getProfile().getName());
+            fetch(uuid, username);
         }
         return info;
     }
