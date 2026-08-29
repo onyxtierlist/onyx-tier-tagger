@@ -1,0 +1,7 @@
+# Copy to .minecraft/config/onyx_tagger.properties and set your real API URL.
+api_url=https://onyx-website.onrender.com/api/onyx/player
+refresh_seconds=60
+show_above_head=true
+show_in_tab=true
+show_self_name=true
+separator= §8• §r

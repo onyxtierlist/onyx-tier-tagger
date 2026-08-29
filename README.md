@@ -1,45 +1,31 @@
-# Onyx Tier Tagger - Fabric 1.21.11
+# ONYX Tier Tagger — Fabric 1.21.11
 
-Client-side Fabric mod for Minecraft 1.21.11.
+Client-side Fabric mod for ONYX. It reads the public ONYX player API and displays the highest tier next to a player's Minecraft name.
 
-Features:
-- Shows the player's highest Onyx tier above their name.
-- Shows the tier in the TAB/player list.
-- Shows your own nameplate in third person (F5), with your Onyx tier.
-- Reads tier data from the configured Onyx Railway API.
-- Caches results and refreshes them periodically.
+## Display
 
-## Build
+`[HT1 ◆] Steve`
 
-Requirements:
-- Java 21
-- Gradle 9.2.0 available as `gradle` in your terminal
+The marker is configurable through the API response's `emoji` field. The bundled website backend supplies a Minecraft-font-safe symbol by default; you can change the mapping in `server.js`.
 
-From this folder:
+## API
 
-    gradle clean build
+The mod calls:
 
-or:
+`GET https://onyx-website.onrender.com/api/onyx/player/<minecraft-name>`
 
-    .\gradlew.bat clean build
-
-The built JAR is created in `build/libs/`.
+The endpoint returns `highest_tier` and `emoji`.
 
 ## Config
 
-After launching Minecraft once, edit:
+After the first launch, edit:
 
-    .minecraft/config/onyx_tagger.properties
+`.minecraft/config/onyx_tagger.properties`
 
-Example:
+Set `api_url` to your Render backend.
 
-    api_url=https://YOUR-RAILWAY-DOMAIN/api/player
-    refresh_seconds=60
-    show_above_head=true
-    show_in_tab=true
-    show_self_name=true
-    separator= • 
+## Build
 
-## Notes
+Use Java 21. Run `gradlew.bat clean build` on Windows. The remapped JAR will be in `build/libs/`.
 
-Minecraft 1.21.11 is an obfuscated release. This project uses Fabric Loom's remapping plugin and Yarn 1.21.11 mappings. Fabric's documentation recommends the remapping Loom plugin for 1.21.11 and earlier.
+The source package includes the Gradle wrapper scripts and wrapper properties. If your checkout does not contain `gradle/wrapper/gradle-wrapper.jar`, regenerate/download the official wrapper once with a local Gradle installation or let the included GitHub Actions workflow build it.

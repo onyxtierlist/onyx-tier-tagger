@@ -1,0 +1,4 @@
+This source package contains Gradle wrapper scripts and gradle-wrapper.properties.
+The uploaded source did not contain gradle/wrapper/gradle-wrapper.jar, and this build environment cannot download Gradle.
+Use GitHub Actions (.github/workflows/build.yml) to compile the project, or regenerate the official wrapper on a machine with Gradle installed.
+No fake .class files or fake JAR are included.
