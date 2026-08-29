@@ -49,7 +49,7 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
 
     private static void refreshNearbyPlayers(MinecraftClient client) {
         for (PlayerEntity player : client.world.getPlayers()) {
-            fetch(player.getUuid(), player.getGameProfile().name());
+            fetch(player.getUuid(), player.getName().getString());
         }
     }
 
