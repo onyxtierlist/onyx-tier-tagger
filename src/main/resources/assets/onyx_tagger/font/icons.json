@@ -1,0 +1,12 @@
+{
+  "providers": [
+    {"type":"bitmap","file":"onyx_tagger:font/sword.png","ascent":8,"height":10,"chars":["\uE001"]},
+    {"type":"bitmap","file":"onyx_tagger:font/uhc.png","ascent":8,"height":10,"chars":["\uE002"]},
+    {"type":"bitmap","file":"onyx_tagger:font/smp.png","ascent":8,"height":10,"chars":["\uE003"]},
+    {"type":"bitmap","file":"onyx_tagger:font/pot.png","ascent":8,"height":10,"chars":["\uE004"]},
+    {"type":"bitmap","file":"onyx_tagger:font/nethop.png","ascent":8,"height":10,"chars":["\uE005"]},
+    {"type":"bitmap","file":"onyx_tagger:font/mace.png","ascent":8,"height":10,"chars":["\uE006"]},
+    {"type":"bitmap","file":"onyx_tagger:font/axe.png","ascent":8,"height":10,"chars":["\uE007"]},
+    {"type":"bitmap","file":"onyx_tagger:font/vanilla.png","ascent":8,"height":10,"chars":["\uE008"]}
+  ]
+}

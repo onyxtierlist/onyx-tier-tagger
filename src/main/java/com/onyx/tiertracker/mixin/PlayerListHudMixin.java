@@ -15,7 +15,7 @@ public class PlayerListHudMixin {
     private void onGetPlayerName(PlayerListEntry entry, CallbackInfoReturnable<Text> cir) {
         if (!OnyxTierTaggerClient.showInTab) return;
         OnyxTierTaggerClient.TierInfo info = OnyxTierTaggerClient.get(entry);
-        if (info == null) return;
-        cir.setReturnValue(cir.getReturnValue().copy().append(Text.literal(" " + info.emoji() + " " + info.tier())));
+        if (info == null || info.topTiers().isEmpty()) return;
+        cir.setReturnValue(PlayerEntityRendererMixin.buildCenteredLabel(cir.getReturnValue(), info));
     }
 }

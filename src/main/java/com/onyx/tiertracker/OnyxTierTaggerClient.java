@@ -157,18 +157,97 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
         } catch (Exception ignored) { }
     }
 
-    public record TierInfo(String tier, String emoji, long fetchedAt) {
+    public record TierInfo(String tier, String emoji, java.util.List<TierEntry> topTiers, long fetchedAt) {
         public static TierInfo parse(String json) {
             try {
-                // The API keeps the real HT/LT code separately from the website's
-                // grouped display label. Minecraft should show the real code.
                 String tier = value(json, "highest_tier_code");
                 if (tier == null || tier.isBlank()) tier = value(json, "highest_tier");
                 if (tier == null || tier.equalsIgnoreCase("none")) return null;
+
                 String emoji = value(json, "emoji");
                 if (emoji == null) emoji = "◆";
-                return new TierInfo(tier.toUpperCase(), emoji, System.currentTimeMillis());
-            } catch (Exception e) { return null; }
+
+                java.util.List<TierEntry> top = parseTopTiers(json);
+                if (top.isEmpty()) {
+                    // Backwards-compatible fallback for older API responses.
+                    String mode = value(json, "gamemode");
+                    top = java.util.List.of(new TierEntry(mode == null ? "vanilla" : mode, tier.toUpperCase(), 0));
+                }
+                return new TierInfo(tier.toUpperCase(), emoji, top, System.currentTimeMillis());
+            } catch (Exception e) {
+                return null;
+            }
+        }
+
+        private static java.util.List<TierEntry> parseTopTiers(String json) {
+            java.util.List<TierEntry> result = new java.util.ArrayList<>();
+            int arrayStart = json.indexOf("\"top_tiers\"");
+            if (arrayStart < 0) return result;
+            arrayStart = json.indexOf('[', arrayStart);
+            if (arrayStart < 0) return result;
+
+            int depth = 0;
+            boolean inString = false;
+            boolean escaped = false;
+            for (int i = arrayStart + 1; i < json.length(); i++) {
+                char c = json.charAt(i);
+                if (inString) {
+                    if (escaped) escaped = false;
+                    else if (c == '\\') escaped = true;
+                    else if (c == '"') inString = false;
+                    continue;
+                }
+                if (c == '"') { inString = true; continue; }
+                if (c == '{') {
+                    if (depth == 0) {
+                        int end = findObjectEnd(json, i);
+                        if (end < 0) break;
+                        String object = json.substring(i, end + 1);
+                        String mode = value(object, "gamemode");
+                        String tier = value(object, "tier");
+                        long points = numberValue(object, "points");
+                        if (mode != null && tier != null && !tier.equalsIgnoreCase("none")) {
+                            result.add(new TierEntry(mode, tier.toUpperCase(), points));
+                            if (result.size() >= 2) break;
+                        }
+                        i = end;
+                    } else depth++;
+                } else if (c == ']') break;
+            }
+            return java.util.List.copyOf(result);
+        }
+
+        private static int findObjectEnd(String json, int start) {
+            int depth = 0;
+            boolean inString = false;
+            boolean escaped = false;
+            for (int i = start; i < json.length(); i++) {
+                char c = json.charAt(i);
+                if (inString) {
+                    if (escaped) escaped = false;
+                    else if (c == '\\') escaped = true;
+                    else if (c == '"') inString = false;
+                    continue;
+                }
+                if (c == '"') inString = true;
+                else if (c == '{') depth++;
+                else if (c == '}' && --depth == 0) return i;
+            }
+            return -1;
+        }
+
+        private static long numberValue(String json, String key) {
+            String needle = "\"" + key + "\"";
+            int i = json.indexOf(needle);
+            if (i < 0) return 0;
+            int colon = json.indexOf(':', i + needle.length());
+            if (colon < 0) return 0;
+            int start = colon + 1;
+            while (start < json.length() && Character.isWhitespace(json.charAt(start))) start++;
+            int end = start;
+            while (end < json.length() && (Character.isDigit(json.charAt(end)) || json.charAt(end) == '-')) end++;
+            try { return Long.parseLong(json.substring(start, end)); }
+            catch (Exception ignored) { return 0; }
         }
 
         private static String value(String json, String key) {
@@ -182,4 +261,7 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
             return start >= 0 && end > start ? json.substring(start + 1, end) : null;
         }
     }
+
+    public record TierEntry(String gamemode, String tier, long points) {}
+
 }
