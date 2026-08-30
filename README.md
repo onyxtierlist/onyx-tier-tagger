@@ -38,3 +38,4 @@ The same complete tier list is used for TAB and above-head labels.
 The source is updated, but this environment does not have the Fabric Loom/Gradle toolchain installed, so the source has not been rebuilt into a new JAR here.
 
 Run `./gradlew build` in a normal Fabric development environment with internet access to build the JAR.
+\n\n## All-tier website API integration\nThe Minecraft mod now reads `https://onyx-website.onrender.com/api/onyx/players`, the same full player dataset used by the ONYX website. The singular `/api/onyx/player/<username>` endpoint only exposes the highest tier, so it cannot be used for all tested gamemodes. The mod matches the player's username in the full list and displays every tier found in `rankings`, including lower/non-highest tiers.\n

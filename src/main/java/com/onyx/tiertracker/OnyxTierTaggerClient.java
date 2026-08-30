@@ -47,7 +47,7 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
         return t;
     });
 
-    public static final String DEFAULT_API_URL = "https://onyx-website.onrender.com/api/onyx/player";
+    public static final String DEFAULT_API_URL = "https://onyx-website.onrender.com/api/onyx/players";
     public static String apiUrl = DEFAULT_API_URL;
     public static int refreshSeconds = 60;
     public static boolean showAboveHead = true;
@@ -122,7 +122,10 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
         if (!IN_FLIGHT.add(uuid)) return;
 
         String base = (apiUrl == null || apiUrl.isBlank()) ? DEFAULT_API_URL : apiUrl;
-        String url = base.replaceAll("/$", "") + "/" + encode(name);
+        // The singular /api/onyx/player/<name> endpoint intentionally exposes
+        // only the highest tier.  The website itself gets the complete player
+        // records from /api/onyx/players, including every tested gamemode.
+        String url = base.replaceAll("/$", "");
 
         try {
             HttpRequest request = HttpRequest.newBuilder(URI.create(url))
@@ -135,7 +138,7 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
                 .thenAccept(response -> {
                     try {
                         if (response.statusCode() != 200) return;
-                        TierInfo info = TierInfo.parse(response.body());
+                        TierInfo info = TierInfo.parsePlayerList(response.body(), name);
                         if (info != null) {
                             CACHE.put(uuid, info);
                             NAME_CACHE.put(name.toLowerCase(Locale.ROOT), info);
@@ -193,6 +196,75 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
     }
 
     public record TierInfo(String tier, String emoji, List<TierEntry> topTiers, long fetchedAt) {
+        /**
+         * Parses the same full player list used by the ONYX website.
+         *
+         * /api/onyx/player/<name> returns only highest_tier, so it cannot be
+         * used to display all tested kits.  /api/onyx/players returns each
+         * player with a rankings object such as:
+         *
+         *   "rankings": {
+         *       "sword": {"rank":"HT1", ...},
+         *       "uhc":   {"rank":"LT2", ...}
+         *   }
+         *
+         * We find the requested player and recursively collect every ranking.
+         */
+        public static TierInfo parsePlayerList(String json, String requestedName) {
+            try {
+                Object root = new JsonParser(json).parse();
+                if (!(root instanceof List<?> players)) return null;
+
+                for (Object value : players) {
+                    if (!(value instanceof Map<?, ?> player)) continue;
+                    String username = firstString(player, "name", "username");
+                    if (username == null || !username.equalsIgnoreCase(requestedName)) continue;
+
+                    String emoji = firstString(player, "emoji");
+                    if (emoji == null || emoji.isBlank()) emoji = "◆";
+
+                    Object rankings = player.get("rankings");
+                    List<TierEntry> all = new ArrayList<>();
+                    collectTierEntries(rankings, null, all);
+
+                    // Some database revisions use kitRanks/kits/tiers instead
+                    // of rankings, so accept those too.
+                    if (all.isEmpty()) collectTierEntries(player.get("kitRanks"), null, all);
+                    if (all.isEmpty()) collectTierEntries(player.get("kits"), null, all);
+                    if (all.isEmpty()) collectTierEntries(player.get("tiers"), null, all);
+
+                    if (all.isEmpty()) return null;
+
+                    List<TierEntry> unique = uniqueTiers(all);
+                    TierEntry best = unique.stream()
+                        .max(java.util.Comparator.comparingLong(TierEntry::points))
+                        .orElse(unique.get(0));
+
+                    return new TierInfo(
+                        best.tier().toUpperCase(Locale.ROOT),
+                        emoji,
+                        List.copyOf(unique),
+                        System.currentTimeMillis()
+                    );
+                }
+            } catch (Throwable ignored) {
+                // Never allow malformed website data to affect rendering.
+            }
+            return null;
+        }
+
+        private static List<TierEntry> uniqueTiers(List<TierEntry> result) {
+            List<TierEntry> unique = new ArrayList<>();
+            Set<String> seen = new java.util.HashSet<>();
+            for (TierEntry e : result) {
+                if (e == null || e.tier() == null || e.tier().isBlank()) continue;
+                String key = (e.gamemode() == null ? "unknown" : e.gamemode().toLowerCase(Locale.ROOT))
+                    + "|" + e.tier().toUpperCase(Locale.ROOT);
+                if (seen.add(key)) unique.add(e);
+            }
+            return unique;
+        }
+
         public static TierInfo parse(String json) {
             try {
                 String tier = value(json, "highest_tier_code");
@@ -235,16 +307,7 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
                 result.addAll(parseTopTiersFallback(json));
             }
 
-            // Remove exact duplicates while preserving API order.
-            List<TierEntry> unique = new ArrayList<>();
-            Set<String> seen = new java.util.HashSet<>();
-            for (TierEntry e : result) {
-                if (e == null || e.tier() == null || e.tier().isBlank()) continue;
-                String key = (e.gamemode() == null ? "unknown" : e.gamemode().toLowerCase(Locale.ROOT))
-                    + "|" + e.tier().toUpperCase(Locale.ROOT);
-                if (seen.add(key)) unique.add(e);
-            }
-            return unique;
+            return uniqueTiers(result);
         }
 
         @SuppressWarnings("unchecked")
