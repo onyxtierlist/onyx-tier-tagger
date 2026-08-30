@@ -139,7 +139,13 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
                         apiUrl = configured;
                     }
                 }
-                else if (line.startsWith("refresh_seconds=")) refreshSeconds = Integer.parseInt(line.substring(16).trim());
+                else if (line.startsWith("refresh_seconds=")) {
+                    try {
+                        refreshSeconds = Math.max(5, Integer.parseInt(line.substring(16).trim()));
+                    } catch (NumberFormatException ignored) {
+                        refreshSeconds = 60;
+                    }
+                }
                 else if (line.startsWith("show_above_head=")) showAboveHead = Boolean.parseBoolean(line.substring(16).trim());
                 else if (line.startsWith("show_in_tab=")) showInTab = Boolean.parseBoolean(line.substring(12).trim());
                 else if (line.startsWith("show_self_name=")) showSelfName = Boolean.parseBoolean(line.substring(15).trim());

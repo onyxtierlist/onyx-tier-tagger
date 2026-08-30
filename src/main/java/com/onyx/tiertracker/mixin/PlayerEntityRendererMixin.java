@@ -44,8 +44,12 @@ public class PlayerEntityRendererMixin {
         var info = OnyxTierTaggerClient.get(player);
         if (info == null) return;
 
-        state.playerName = state.playerName.copy()
-                .append(Text.literal(OnyxTierTaggerClient.separator
-                        + info.emoji() + " " + info.tier()));
+        // Render states may be reused across frames. Never append the tier to an
+        // already-modified name, otherwise the suffix can grow every render.
+        String suffix = OnyxTierTaggerClient.separator + info.emoji() + " " + info.tier();
+        String current = state.playerName.getString();
+        if (current.endsWith(suffix)) return;
+
+        state.playerName = state.playerName.copy().append(Text.literal(suffix));
     }
 }
