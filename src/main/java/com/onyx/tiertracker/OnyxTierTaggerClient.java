@@ -24,7 +24,12 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
     public static final Map<UUID, TierInfo> CACHE = new ConcurrentHashMap<>();
     private static final Map<String, TierInfo> NAME_CACHE = new ConcurrentHashMap<>();
     private static final Set<UUID> IN_FLIGHT = ConcurrentHashMap.newKeySet();
-    private static final HttpClient HTTP = HttpClient.newHttpClient();
+    private static final HttpClient HTTP = HttpClient.newBuilder()
+            // Render/API hosts may redirect HTTP requests. Browsers follow these,
+            // but Java's default HttpClient does not.
+            .followRedirects(HttpClient.Redirect.NORMAL)
+            .connectTimeout(java.time.Duration.ofSeconds(15))
+            .build();
     private static final ScheduledExecutorService EXECUTOR = Executors.newSingleThreadScheduledExecutor(r -> {
         Thread t = new Thread(r, "Onyx-Tier-API");
         t.setDaemon(true);
@@ -44,11 +49,9 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
         loadConfig();
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player == null || client.world == null) return;
-            // Fetch immediately on the first client tick so the local player's
-            // tier is available before the nametag is rendered.
-            if (client.player.age == 1 || client.player.age % (20 * Math.max(5, refreshSeconds)) == 0) {
-                refreshNearbyPlayers(client);
-            }
+            // fetch() itself prevents duplicate requests, so calling this every
+            // tick is safe and makes the first fetch reliable after joining.
+            refreshNearbyPlayers(client);
         });
     }
 
@@ -94,7 +97,7 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
         HttpRequest request = HttpRequest.newBuilder(URI.create(url))
                 .header("Accept", "application/json")
                 .GET()
-                .timeout(java.time.Duration.ofSeconds(8))
+                .timeout(java.time.Duration.ofSeconds(30))
                 .build();
         HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString()).thenAccept(response -> {
             String body = response.body();
