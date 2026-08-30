@@ -7,6 +7,7 @@ import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
 import net.minecraft.entity.PlayerLikeEntity;
 import net.minecraft.text.Text;
 import net.minecraft.text.Style;
+import net.minecraft.text.StyleSpriteSource;
 import net.minecraft.util.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -87,7 +88,7 @@ public class PlayerEntityRendererMixin {
 
     private static Text tierWithIcon(OnyxTierTaggerClient.TierEntry tier, boolean iconFirst) {
         String icon = iconChar(tier.gamemode());
-        Text iconText = Text.literal(icon).setStyle(Style.EMPTY.withFont(ICON_FONT));
+        Text iconText = Text.literal(icon).setStyle(Style.EMPTY.withFont(new StyleSpriteSource.Font(ICON_FONT)));
         Text tierText = Text.literal(tier.tier());
         if (iconFirst) {
             return Text.empty().append(iconText).append(Text.literal(" ")).append(tierText);
