@@ -1,7 +1,6 @@
 package com.onyx.tiertracker;
 
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.entity.player.PlayerEntity;
@@ -9,8 +8,6 @@ import net.minecraft.util.Identifier;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 import net.minecraft.text.Style;
-import net.minecraft.text.TextColor;
-import net.minecraft.text.Font;
 
 import java.io.IOException;
 import java.net.URI;
@@ -31,11 +28,13 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public final class OnyxTierTaggerClient implements ClientModInitializer {
     public static final Map<UUID, TierInfo> CACHE = new ConcurrentHashMap<>();
     private static final Map<String, TierInfo> NAME_CACHE = new ConcurrentHashMap<>();
     private static final Set<UUID> IN_FLIGHT = ConcurrentHashMap.newKeySet();
+    private static volatile long lastRefreshAt;
 
     private static final HttpClient HTTP = HttpClient.newBuilder()
         .followRedirects(HttpClient.Redirect.NORMAL)
@@ -60,18 +59,51 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         loadConfig();
-        ClientTickEvents.END_CLIENT_TICK.register(OnyxTierTaggerClient::onEndTick);
+        // Do not hook the network/API into the render or tick path. A single
+        // full-player-list request is scheduled in the background and then
+        // applied on Minecraft's client thread. This avoids one HTTP request
+        // per player and makes TAB rendering completely independent of the API.
+        EXECUTOR.scheduleWithFixedDelay(() -> {
+            try {
+                MinecraftClient client = MinecraftClient.getInstance();
+                client.execute(OnyxTierTaggerClient::refreshPlayerList);
+            } catch (Throwable ignored) {}
+        }, 0, Math.max(5, refreshSeconds), TimeUnit.SECONDS);
     }
 
-    private static void onEndTick(MinecraftClient client) {
-        if (client.player == null || client.world == null) return;
-        refreshNearbyPlayers(client);
+    private static void refreshPlayerList() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.world == null) return;
+        fetchFullPlayerList();
     }
 
-    private static void refreshNearbyPlayers(MinecraftClient client) {
-        for (PlayerEntity player : client.world.getPlayers()) {
-            fetch(player.getUuid(), player.getGameProfile().name());
+    private static void fetchFullPlayerList() {
+        String base = (apiUrl == null || apiUrl.isBlank()) ? DEFAULT_API_URL : apiUrl.trim();
+        String url = base.replaceAll("/$", "");
+        if (url.contains("/api/onyx/player/")) {
+            // A user may have an old config pointing at the singular endpoint.
+            // Leave it alone; individual fallback requests will handle it.
+            return;
         }
+        if (System.currentTimeMillis() - lastRefreshAt < Math.max(5, refreshSeconds) * 1000L) return;
+        lastRefreshAt = System.currentTimeMillis();
+
+        try {
+            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+                .header("Accept", "application/json")
+                .GET()
+                .timeout(Duration.ofSeconds(30))
+                .build();
+
+            HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString())
+                .thenAccept(response -> {
+                    try {
+                        if (response.statusCode() != 200) return;
+                        TierInfo.cachePlayerList(response.body());
+                    } catch (Throwable ignored) {}
+                })
+                .exceptionally(error -> null);
+        } catch (Throwable ignored) {}
     }
 
     public static TierInfo get(PlayerEntity player) {
@@ -79,9 +111,7 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
         UUID id = player.getUuid();
         String name = player.getGameProfile().name();
         TierInfo cached = CACHE.get(id);
-        if (isFresh(cached)) return cached;
-        fetch(id, name);
-        return cached;
+        return isFresh(cached) ? cached : null;
     }
 
     public static TierInfo get(PlayerListEntry entry) {
@@ -99,8 +129,8 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
             return byName;
         }
 
-        // Fetch asynchronously; the TAB render path never blocks on the API.
-        fetch(id, name);
+        // Never start network work from the TAB/render path. The background
+        // scheduler refreshes the shared snapshot independently.
         return cached;
     }
 
@@ -119,33 +149,34 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
             return;
         }
 
-        if (!IN_FLIGHT.add(uuid)) return;
-
-        String base = (apiUrl == null || apiUrl.isBlank()) ? DEFAULT_API_URL : apiUrl;
-        // The singular /api/onyx/player/<name> endpoint intentionally exposes
-        // only the highest tier.  The website itself gets the complete player
-        // records from /api/onyx/players, including every tested gamemode.
+        // Prefer the full /players snapshot. If it has not populated the
+        // requested player yet, make at most one per-player fallback request.
+        String base = (apiUrl == null || apiUrl.isBlank()) ? DEFAULT_API_URL : apiUrl.trim();
         String url = base.replaceAll("/$", "");
+        if (!url.contains("/api/onyx/player/")) {
+            fetchFullPlayerList();
+            return;
+        }
 
+        if (!IN_FLIGHT.add(uuid)) return;
+        String encoded = encode(name);
+        String playerUrl = url + "/" + encoded;
         try {
-            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+            HttpRequest request = HttpRequest.newBuilder(URI.create(playerUrl))
                 .header("Accept", "application/json")
                 .GET()
-                .timeout(Duration.ofSeconds(30))
+                .timeout(Duration.ofSeconds(15))
                 .build();
-
             HTTP.sendAsync(request, HttpResponse.BodyHandlers.ofString())
                 .thenAccept(response -> {
                     try {
                         if (response.statusCode() != 200) return;
-                        TierInfo info = TierInfo.parsePlayerList(response.body(), name);
+                        TierInfo info = TierInfo.parse(response.body());
                         if (info != null) {
                             CACHE.put(uuid, info);
                             NAME_CACHE.put(name.toLowerCase(Locale.ROOT), info);
                         }
-                    } catch (Throwable ignored) {
-                        // Bad API data should never reach the render thread.
-                    }
+                    } catch (Throwable ignored) {}
                 })
                 .exceptionally(error -> null)
                 .whenComplete((ignored, error) -> IN_FLIGHT.remove(uuid));
@@ -210,46 +241,61 @@ public final class OnyxTierTaggerClient implements ClientModInitializer {
          *
          * We find the requested player and recursively collect every ranking.
          */
+        public static void cachePlayerList(String json) {
+            try {
+                Object root = new JsonParser(json).parse();
+                if (!(root instanceof List<?> players)) return;
+                long now = System.currentTimeMillis();
+                for (Object value : players) {
+                    if (!(value instanceof Map<?, ?> player)) continue;
+                    String username = firstString(player, "name", "username");
+                    if (username == null || username.isBlank()) continue;
+                    TierInfo info = parsePlayerObject(player, now);
+                    if (info == null) continue;
+                    NAME_CACHE.put(username.toLowerCase(Locale.ROOT), info);
+                    UUID uuid = parseUuid(firstString(player, "uuid", "id"));
+                    if (uuid != null) CACHE.put(uuid, info);
+                }
+            } catch (Throwable ignored) {}
+        }
+
+        private static UUID parseUuid(String value) {
+            if (value == null || value.isBlank()) return null;
+            try { return UUID.fromString(value); } catch (IllegalArgumentException ignored) {}
+            if (value.length() == 32) {
+                try {
+                    return UUID.fromString(value.substring(0,8)+"-"+value.substring(8,12)+"-"+value.substring(12,16)+"-"+value.substring(16,20)+"-"+value.substring(20));
+                } catch (IllegalArgumentException ignored) {}
+            }
+            return null;
+        }
+
+        private static TierInfo parsePlayerObject(Map<?, ?> player, long fetchedAt) {
+            String emoji = firstString(player, "emoji");
+            if (emoji == null || emoji.isBlank()) emoji = "◆";
+            List<TierEntry> all = new ArrayList<>();
+            collectTierEntries(player.get("rankings"), null, all);
+            if (all.isEmpty()) collectTierEntries(player.get("kitRanks"), null, all);
+            if (all.isEmpty()) collectTierEntries(player.get("kits"), null, all);
+            if (all.isEmpty()) collectTierEntries(player.get("tiers"), null, all);
+            List<TierEntry> unique = uniqueTiers(all);
+            if (unique.isEmpty()) return null;
+            TierEntry best = unique.stream().max(java.util.Comparator.comparingLong(TierEntry::points)).orElse(unique.get(0));
+            return new TierInfo(best.tier().toUpperCase(Locale.ROOT), emoji, List.copyOf(unique), fetchedAt);
+        }
+
         public static TierInfo parsePlayerList(String json, String requestedName) {
             try {
                 Object root = new JsonParser(json).parse();
                 if (!(root instanceof List<?> players)) return null;
-
                 for (Object value : players) {
                     if (!(value instanceof Map<?, ?> player)) continue;
                     String username = firstString(player, "name", "username");
-                    if (username == null || !username.equalsIgnoreCase(requestedName)) continue;
-
-                    String emoji = firstString(player, "emoji");
-                    if (emoji == null || emoji.isBlank()) emoji = "◆";
-
-                    Object rankings = player.get("rankings");
-                    List<TierEntry> all = new ArrayList<>();
-                    collectTierEntries(rankings, null, all);
-
-                    // Some database revisions use kitRanks/kits/tiers instead
-                    // of rankings, so accept those too.
-                    if (all.isEmpty()) collectTierEntries(player.get("kitRanks"), null, all);
-                    if (all.isEmpty()) collectTierEntries(player.get("kits"), null, all);
-                    if (all.isEmpty()) collectTierEntries(player.get("tiers"), null, all);
-
-                    if (all.isEmpty()) return null;
-
-                    List<TierEntry> unique = uniqueTiers(all);
-                    TierEntry best = unique.stream()
-                        .max(java.util.Comparator.comparingLong(TierEntry::points))
-                        .orElse(unique.get(0));
-
-                    return new TierInfo(
-                        best.tier().toUpperCase(Locale.ROOT),
-                        emoji,
-                        List.copyOf(unique),
-                        System.currentTimeMillis()
-                    );
+                    if (username != null && username.equalsIgnoreCase(requestedName)) {
+                        return parsePlayerObject(player, System.currentTimeMillis());
+                    }
                 }
-            } catch (Throwable ignored) {
-                // Never allow malformed website data to affect rendering.
-            }
+            } catch (Throwable ignored) {}
             return null;
         }
 

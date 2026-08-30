@@ -18,7 +18,8 @@ public class PlayerListHudMixin {
     @Inject(
         method = "getPlayerName",
         at = @At("RETURN"),
-        cancellable = true
+        cancellable = true,
+        require = 0
     )
     private void onGetPlayerName(PlayerListEntry entry, CallbackInfoReturnable<Text> cir) {
         if (!OnyxTierTaggerClient.showInTab || entry == null) return;

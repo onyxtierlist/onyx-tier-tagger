@@ -3,14 +3,22 @@
   "id": "onyx_tagger",
   "version": "${version}",
   "name": "Onyx Tier Tagger",
-  "description": "Shows a player's highest Onyx Tiers rank above their name and in the player list.",
+  "description": "Shows all tested Onyx tiers above player names and in TAB.",
   "environment": "client",
-  "entrypoints": { "client": ["com.onyx.tiertracker.OnyxTierTaggerClient"] },
-  "mixins": [{ "config": "onyx_tagger.client.mixins.json", "environment": "client" }],
+  "entrypoints": {
+    "client": [
+      "com.onyx.tiertracker.OnyxTierTaggerClient"
+    ]
+  },
+  "mixins": [
+    {
+      "config": "onyx_tagger.client.mixins.json",
+      "environment": "client"
+    }
+  ],
   "depends": {
-    "fabricloader": ">=0.18.0",
+    "fabricloader": ">=0.18.4",
     "minecraft": "~1.21.11",
-    "java": ">=21",
-    "fabric-api": "*"
+    "java": ">=21"
   }
 }

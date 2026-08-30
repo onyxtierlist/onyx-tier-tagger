@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public class PlayerEntityRendererMixin {
     private static final Identifier ICON_FONT = Identifier.of("onyx_tagger", "icons");
 
-    @Inject(method = "method_74935(Lnet/minecraft/class_11890;D)Z", at = @At("RETURN"), cancellable = true)
+    @Inject(method = "hasLabel", at = @At("RETURN"), cancellable = true, require = 0)
     private void onHasLabel(net.minecraft.entity.PlayerLikeEntity player, double squaredDistanceToCamera, CallbackInfoReturnable<Boolean> cir) {
         if (!OnyxTierTaggerClient.showAboveHead || !OnyxTierTaggerClient.showSelfName) return;
         try {
@@ -29,7 +29,7 @@ public class PlayerEntityRendererMixin {
         } catch (Throwable ignored) {}
     }
 
-    @Inject(method = "method_4213(Lnet/minecraft/class_10055;Lnet/minecraft/class_4587;Lnet/minecraft/class_11659;Lnet/minecraft/class_12075;)V", at = @At("HEAD"))
+    @Inject(method = "renderLabelIfPresent", at = @At("HEAD"), require = 0)
     private void onRenderLabel(net.minecraft.client.render.entity.state.PlayerEntityRenderState state, MatrixStack matrices, net.minecraft.client.render.command.OrderedRenderCommandQueue queue, net.minecraft.client.render.state.CameraRenderState camera, CallbackInfo ci) {
         if (!OnyxTierTaggerClient.showAboveHead || state.id < 0) return;
         try {
