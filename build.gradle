@@ -1,55 +1,30 @@
 plugins {
-    id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
+    id 'fabric-loom' version loom_version
     id 'maven-publish'
 }
 
-version = project.mod_version
 group = project.maven_group
+version = project.mod_version
 
-base {
-    archivesName = project.archives_base_name
-}
+base { archivesName = project.archives_base_name }
 
-// Loom supplies the Fabric, Mojang and Maven Central repositories needed
-// for Minecraft and Fabric dependencies. Do not override them in settings.gradle.
 repositories {
-    // Add third-party mod repositories here only when needed.
+    maven { name = 'Fabric'; url = 'https://maven.fabricmc.net/' }
+    mavenCentral()
 }
 
 dependencies {
-    minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    mappings "net.fabricmc:yarn:1.21.11+build.5:v2"
+    modImplementation "net.fabricmc:fabric-loader:${loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:0.141.6+1.21.11"
 }
 
 processResources {
     inputs.property 'version', project.version
-    filesMatching('fabric.mod.json') {
-        expand 'version': project.version
-    }
+    filesMatching('fabric.mod.json') { expand 'version': project.version }
 }
 
-tasks.withType(JavaCompile).configureEach {
-    options.release = 21
-}
+tasks.withType(JavaCompile).configureEach { options.release = 21 }
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
-    withSourcesJar()
-}
-
-jar {
-    from('LICENSE') {
-        rename { "${it}_${project.archives_base_name}" }
-    }
-}
-
-publishing {
-    publications {
-        create('mavenJava', MavenPublication) {
-            from components.java
-        }
-    }
-}
+java { withSourcesJar() }
