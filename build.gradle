@@ -41,6 +41,9 @@ java {
 }
 
 jar {
+    // Fabric Loom may already contribute the renamed license entry.
+    // Prevent duplicate LICENSE entries from failing the Jar task.
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from('LICENSE') {
         rename { "${it}_${project.archives_base_name}" }
     }
