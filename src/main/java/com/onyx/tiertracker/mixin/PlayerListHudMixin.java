@@ -7,6 +7,7 @@ import net.minecraft.client.network.PlayerListEntry;
 import net.minecraft.text.Style;
 import net.minecraft.text.StyleSpriteSource;
 import net.minecraft.text.Text;
+import net.minecraft.text.MutableText;
 import net.minecraft.util.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -25,7 +26,7 @@ public class PlayerListHudMixin {
         var info = OnyxTierTaggerClient.get(entry);
         if (info == null || info.allTiers().isEmpty()) return;
 
-        Text out = cir.getReturnValue().copy().append(Text.literal("  "));
+        MutableText out = cir.getReturnValue().copy().append(Text.literal("  "));
         for (int i = 0; i < info.allTiers().size(); i++) {
             if (i > 0) out.append(Text.literal("  "));
             TierEntry tier = info.allTiers().get(i);
@@ -36,7 +37,7 @@ public class PlayerListHudMixin {
         cir.setReturnValue(out);
     }
 
-    private static Text iconText(String gamemode) {
+    private static MutableText iconText(String gamemode) {
         String mode = gamemode == null ? "vanilla" : gamemode.toLowerCase(Locale.ROOT)
                 .replace("_", "").replace("-", "").replace(" ", "");
         String icon = switch (mode) {
