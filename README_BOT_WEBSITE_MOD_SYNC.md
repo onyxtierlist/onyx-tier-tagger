@@ -1,11 +1,8 @@
 # Onyx Tier Tagger — Bot → Website → Mod sync
 
-Configured for the live Onyx website API:
-https://onyx-website.onrender.com/api/onyx/player
+Uses the live complete-player endpoint:
+https://onyx-website.onrender.com/api/onyx/players
 
-Minecraft displays the actual tier code returned by the API (`HT1`, `LT1`, etc.).
-The website may group these into `Tier 1`, `Tier 2`, etc.; the mod intentionally uses `highest_tier_code` first so Minecraft keeps the HT/LT code.
+The mod reads each player's `rankings` object when available, with `all_tiers` / `top_tiers` / highest-tier fallbacks for compatibility. It caches the complete player list and refreshes it once per configured refresh interval, so it does not request the full list every render tick.
 
-The mod fetches player data by Minecraft username and caches it. It also fetches immediately when a player label/tab entry is first requested, with an in-flight guard to avoid duplicate requests.
-
-GitHub Actions already includes the Gradle wrapper executable permission step.
+All ranked gamemodes are sorted by points and rendered around the player name. The source icon PNGs remain 32×32 for clarity, while the font provider renders them at a normal 16px in-game glyph size.
