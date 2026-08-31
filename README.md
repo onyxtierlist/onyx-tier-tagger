@@ -1,41 +1,45 @@
-# Onyx Tier Tagger 1.0.1 — ALL TIERS
+# Onyx Tier Tagger - Fabric 1.21.11
 
-Fabric client mod for Minecraft 1.21.11.
+Client-side Fabric mod for Minecraft 1.21.11.
 
-## API
+Features:
+- Shows the player's highest Onyx tier above their name.
+- Shows the tier in the TAB/player list.
+- Shows your own nameplate in third person (F5), with your Onyx tier.
+- Reads tier data from the configured Onyx Railway API.
+- Caches results and refreshes them periodically.
 
-The mod fetches each player's profile from:
+## Build
 
-`https://onyx-website.onrender.com/api/onyx/player/<USERNAME>`
+Requirements:
+- Java 21
+- Gradle 9.2.0 available as `gradle` in your terminal
 
-## What changed
+From this folder:
 
-This version does **not** use only `top_tiers`.
+    gradle clean build
 
-The API response is parsed recursively so tier records can be collected from the **entire player response**, including lower/non-top tiers and tier records stored in nested objects/arrays.
+or:
 
-Supported common response shapes include:
+    .\gradlew.bat clean build
 
-- `{ "gamemode": "sword", "tier": "HT1" }`
-- `{ "gamemode": "sword", "tier_code": "HT1" }`
-- `{ "sword": { "tier": "HT1" } }`
-- `{ "sword": { "tier_code": "HT1" } }`
+The built JAR is created in `build/libs/`.
 
-Exact duplicate `gamemode + tier` pairs are removed while preserving API order.
+## Config
 
-### Display
+After launching Minecraft once, edit:
 
-If the API contains, for example, multiple records such as:
+    .minecraft/config/onyx_tagger.properties
 
-`Sword: HT1`, `Sword: LT2`, `UHC: HT2`, `Pot: LT1`
+Example:
 
-the mod can display all of them instead of only the highest/top entries.
+    api_url=https://YOUR-RAILWAY-DOMAIN/api/player
+    refresh_seconds=60
+    show_above_head=true
+    show_in_tab=true
+    show_self_name=true
+    separator= • 
 
-The same complete tier list is used for TAB and above-head labels.
+## Notes
 
-## Important
-
-The source is updated, but this environment does not have the Fabric Loom/Gradle toolchain installed, so the source has not been rebuilt into a new JAR here.
-
-Run `./gradlew build` in a normal Fabric development environment with internet access to build the JAR.
-\n\n## All-tier website API integration\nThe Minecraft mod now reads `https://onyx-website.onrender.com/api/onyx/players`, the same full player dataset used by the ONYX website. The singular `/api/onyx/player/<username>` endpoint only exposes the highest tier, so it cannot be used for all tested gamemodes. The mod matches the player's username in the full list and displays every tier found in `rankings`, including lower/non-highest tiers.\n
+Minecraft 1.21.11 is an obfuscated release. This project uses Fabric Loom's remapping plugin and Yarn 1.21.11 mappings. Fabric's documentation recommends the remapping Loom plugin for 1.21.11 and earlier.

@@ -2,6 +2,11 @@
   "required": true,
   "package": "com.onyx.tiertracker.mixin",
   "compatibilityLevel": "JAVA_21",
-  "client": ["PlayerEntityRendererMixin", "PlayerListHudMixin"],
-  "injectors": { "defaultRequire": 0 }
+  "client": [
+    "PlayerEntityRendererMixin",
+    "PlayerListHudMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
 }

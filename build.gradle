@@ -1,31 +1,55 @@
 plugins {
-    id 'net.fabricmc.fabric-loom-remap' version '1.14.1'
+    id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
     id 'maven-publish'
 }
 
-group = project.maven_group
 version = project.mod_version
+group = project.maven_group
 
-base { archivesName = project.archives_base_name }
+base {
+    archivesName = project.archives_base_name
+}
 
+// Loom supplies the Fabric, Mojang and Maven Central repositories needed
+// for Minecraft and Fabric dependencies. Do not override them in settings.gradle.
 repositories {
-    mavenCentral()
+    // Add third-party mod repositories here only when needed.
 }
 
 dependencies {
-    minecraft "com.mojang:minecraft:${minecraft_version}"
-    mappings "net.fabricmc:yarn:1.21.11+build.5:v2"
-    modImplementation "net.fabricmc:fabric-loader:${loader_version}"
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 }
 
 processResources {
     inputs.property 'version', project.version
-    filesMatching('fabric.mod.json') { expand 'version': project.version }
+    filesMatching('fabric.mod.json') {
+        expand 'version': project.version
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {
     options.release = 21
-    options.encoding = 'UTF-8'
 }
 
-java { withSourcesJar() }
+java {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+    withSourcesJar()
+}
+
+jar {
+    from('LICENSE') {
+        rename { "${it}_${project.archives_base_name}" }
+    }
+}
+
+publishing {
+    publications {
+        create('mavenJava', MavenPublication) {
+            from components.java
+        }
+    }
+}
