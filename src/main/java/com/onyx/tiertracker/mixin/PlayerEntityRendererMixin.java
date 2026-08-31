@@ -62,7 +62,7 @@ public class PlayerEntityRendererMixin {
      */
     public static MutableText buildAllTiersCentered(Text name, OnyxTierTaggerClient.TierInfo info) {
         var tiers = info.allTiers();
-        if (tiers.isEmpty()) return name;
+        if (tiers.isEmpty()) return name.copy();
 
         int leftCount = tiers.size() / 2;
         MutableText result = Text.empty();
