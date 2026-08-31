@@ -8,8 +8,8 @@ import net.minecraft.client.render.entity.state.PlayerEntityRenderState;
 import net.minecraft.entity.PlayerLikeEntity;
 import net.minecraft.text.Style;
 import net.minecraft.text.StyleSpriteSource;
-import net.minecraft.text.Text;
 import net.minecraft.text.MutableText;
+import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -60,9 +60,9 @@ public class PlayerEntityRendererMixin {
      * Keeps the player's name visually central while putting all tiers around it.
      * The stronger half is placed on the left and the remaining tiers on the right.
      */
-    public static MutableText buildAllTiersCentered(Text name, OnyxTierTaggerClient.TierInfo info) {
+    private static Text buildAllTiersCentered(Text name, OnyxTierTaggerClient.TierInfo info) {
         var tiers = info.allTiers();
-        if (tiers.isEmpty()) return name.copy();
+        if (tiers.isEmpty()) return name;
 
         int leftCount = tiers.size() / 2;
         MutableText result = Text.empty();
@@ -83,7 +83,7 @@ public class PlayerEntityRendererMixin {
         return result;
     }
 
-    private static MutableText tierWithIcon(TierEntry tier, boolean iconFirst) {
+    private static Text tierWithIcon(TierEntry tier, boolean iconFirst) {
         String icon = iconChar(tier.gamemode());
         Text iconText = Text.literal(icon)
                 .setStyle(Style.EMPTY.withFont(new StyleSpriteSource.Font(ICON_FONT)));

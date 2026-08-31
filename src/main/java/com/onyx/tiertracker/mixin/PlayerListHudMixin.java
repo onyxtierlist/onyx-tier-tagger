@@ -4,10 +4,10 @@ import com.onyx.tiertracker.OnyxTierTaggerClient;
 import com.onyx.tiertracker.OnyxTierTaggerClient.TierEntry;
 import net.minecraft.client.gui.hud.PlayerListHud;
 import net.minecraft.client.network.PlayerListEntry;
+import net.minecraft.text.MutableText;
 import net.minecraft.text.Style;
 import net.minecraft.text.StyleSpriteSource;
 import net.minecraft.text.Text;
-import net.minecraft.text.MutableText;
 import net.minecraft.util.Identifier;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -37,7 +37,7 @@ public class PlayerListHudMixin {
         cir.setReturnValue(out);
     }
 
-    private static MutableText iconText(String gamemode) {
+    private static Text iconText(String gamemode) {
         String mode = gamemode == null ? "vanilla" : gamemode.toLowerCase(Locale.ROOT)
                 .replace("_", "").replace("-", "").replace(" ", "");
         String icon = switch (mode) {
